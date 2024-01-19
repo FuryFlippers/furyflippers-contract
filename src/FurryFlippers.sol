@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import {Ownable} from "solady/src/auth/Ownable.sol";
 import {SafeTransferLib} from "solady/src/utils/SafeTransferLib.sol";
 
-contract Coinflip is Ownable {
+contract FuryFlippers is Ownable {
     mapping(bytes32 => uint256) public active;
 
     event BetCreated(
