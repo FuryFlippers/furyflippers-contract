@@ -122,7 +122,7 @@ contract FuryFlippers is Ownable {
             address(this),
             amount
         );
-        SafeTransferLib.safeTransfer(token, winner, amount);
+        SafeTransferLib.safeTransfer(token, winner, amount * 2);
     }
 
     function takeBet(
