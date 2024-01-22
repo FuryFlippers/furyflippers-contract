@@ -133,6 +133,7 @@ contract FuryFlippers is Ownable {
                 ++i;
             }
         }
+        active[betId] = 0;
         SafeTransferLib.safeTransferFrom(
             token,
             msg.sender,
