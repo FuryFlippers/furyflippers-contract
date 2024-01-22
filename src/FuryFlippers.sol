@@ -67,13 +67,27 @@ contract FuryFlippers is Ownable {
         emit BetCancelled(msg.sender, taker, amount, makerHeads, betId);
     }
 
-    function takeBet(address maker, uint256 amount, bool makerHeads) external {
+    function takeBet(
+        address maker,
+        address taker,
+        uint256 amount,
+        bool makerHeads
+    ) external {
         (bytes32 betId, address winner, uint256[] memory results) = _takeBet(
             maker,
+            taker,
             amount,
             makerHeads
         );
-        emit BetTaken(maker, msg.sender, amount, makerHeads, winner, results, betId);
+        emit BetTaken(
+            maker,
+            msg.sender,
+            amount,
+            makerHeads,
+            winner,
+            results,
+            betId
+        );
     }
 
     function _createBet(
@@ -105,13 +119,18 @@ contract FuryFlippers is Ownable {
 
     function _takeBet(
         address maker,
+        address taker,
         uint256 amount,
         bool makerHeads
     )
         internal
         returns (bytes32 betId, address winner, uint256[] memory results)
     {
-        betId = getBetId(maker, msg.sender, amount, makerHeads);
+        if (taker == address(0)) {
+            betId = getBetId(maker, taker, amount, makerHeads);
+        } else {
+            betId = getBetId(maker, msg.sender, amount, makerHeads);
+        }
         require(active[betId] == 1, "does not exist");
         uint256 seed = uint256(
             keccak256(abi.encodePacked(block.number, block.prevrandao))
