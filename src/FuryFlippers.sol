@@ -5,54 +5,84 @@ import {Ownable} from "solady/src/auth/Ownable.sol";
 import {SafeTransferLib} from "solady/src/utils/SafeTransferLib.sol";
 
 contract FuryFlippers is Ownable {
+    address token;
+    uint256 betLength;
     mapping(bytes32 => uint256) public active;
 
     event BetCreated(
         address maker,
         address taker,
-        address token,
         uint256 amount,
-        bytes32 betId,
-        uint256 timestamp
+        bool makerHeads,
+        bytes32 betId
     );
 
     event BetCancelled(
         address maker,
         address taker,
-        address token,
         uint256 amount,
-        bytes32 betId,
-        uint256 timestamp
+        bool makerHeads,
+        bytes32 betId
     );
 
-    event BetConcluded(
+    event BetTaken(
         address maker,
         address taker,
-        address token,
         uint256 amount,
-        bytes32 betId,
-        uint256 timestamp,
-        address winner
+        bool makerHeads,
+        address winner,
+        uint256[] results,
+        bytes32 betId
     );
+
+    constructor(address _token, uint256 _betLength) {
+        token = _token;
+        betLength = _betLength;
+    }
 
     function getBetId(
         address maker,
         address taker,
-        address token,
         uint256 amount,
-        uint256 timestamp
+        bool makerHeads
     ) public pure returns (bytes32) {
-        return
-            keccak256(abi.encodePacked(maker, taker, token, amount, timestamp));
+        return keccak256(abi.encodePacked(maker, taker, makerHeads, amount));
+    }
+
+    function createBet(
+        address taker,
+        uint256 amount,
+        bool makerHeads
+    ) external {
+        bytes32 betId = _createBet(taker, amount, makerHeads);
+        emit BetCreated(msg.sender, taker, amount, makerHeads, betId);
+    }
+
+    function cancelBet(
+        address taker,
+        uint256 amount,
+        bool makerHeads
+    ) external {
+        bytes32 betId = _cancelBet(taker, amount, makerHeads);
+        emit BetCancelled(msg.sender, taker, amount, makerHeads, betId);
+    }
+
+    function takeBet(address maker, uint256 amount, bool makerHeads) external {
+        (bytes32 betId, address winner, uint256[] memory results) = _takeBet(
+            maker,
+            amount,
+            makerHeads
+        );
+        emit BetTaken(maker, msg.sender, amount, makerHeads, winner, results, betId);
     }
 
     function _createBet(
         address taker,
-        address token,
-        uint256 amount
+        uint256 amount,
+        bool makerHeads
     ) internal returns (bytes32 betId) {
-        betId = getBetId(msg.sender, taker, token, amount, block.timestamp);
-        require(active[betId] == 0, "bet exists");
+        betId = getBetId(msg.sender, taker, amount, makerHeads);
+        require(active[betId] == 0, "exists");
         active[betId] = 1;
         SafeTransferLib.safeTransferFrom(
             token,
@@ -62,89 +92,59 @@ contract FuryFlippers is Ownable {
         );
     }
 
-    function createBet(address taker, address token, uint256 amount) external {
-        bytes32 betId = _createBet(taker, token, amount);
-        emit BetCreated(
-            msg.sender,
-            taker,
-            token,
-            amount,
-            betId,
-            block.timestamp
-        );
-    }
-
     function _cancelBet(
         address taker,
-        address token,
         uint256 amount,
-        uint256 timestamp
+        bool makerHeads
     ) internal returns (bytes32 betId) {
-        betId = getBetId(msg.sender, taker, token, amount, timestamp);
-        require(active[betId] == 1, "bet does not exist");
+        betId = getBetId(msg.sender, taker, amount, makerHeads);
+        require(active[betId] == 1, "does not exist");
         active[betId] = 0;
         SafeTransferLib.safeTransfer(token, msg.sender, amount);
     }
 
-    function cancelBet(
-        address taker,
-        address token,
-        uint256 amount,
-        uint256 timestamp
-    ) external {
-        bytes32 betId = _cancelBet(taker, token, amount, timestamp);
-        emit BetCancelled(msg.sender, taker, token, amount, betId, timestamp);
-    }
-
     function _takeBet(
         address maker,
-        address token,
         uint256 amount,
-        uint256 timestamp
-    ) internal returns (bytes32 betId, address winner) {
-        betId = getBetId(maker, msg.sender, token, amount, timestamp);
-        require(active[betId] == 1, "bet does not exist");
+        bool makerHeads
+    )
+        internal
+        returns (bytes32 betId, address winner, uint256[] memory results)
+    {
+        betId = getBetId(maker, msg.sender, amount, makerHeads);
+        require(active[betId] == 1, "does not exist");
         uint256 seed = uint256(
             keccak256(abi.encodePacked(block.number, block.prevrandao))
         );
-        uint256 result = seed % 100;
-
-        if (result < 50) {
-            winner = maker;
-        } else {
-            winner = msg.sender;
+        uint256 makerScore = 0;
+        uint256 takerScore = 0;
+        uint256 i = 0;
+        uint256 convertedSeed;
+        while (i < betLength) {
+            seed = uint256(keccak256(abi.encode(seed)));
+            unchecked {
+                convertedSeed = seed % 100;
+                results[i] = convertedSeed;
+                if (convertedSeed < 50) {
+                    ++makerScore;
+                } else {
+                    ++takerScore;
+                }
+                ++i;
+            }
         }
-
-        active[betId] = 0;
         SafeTransferLib.safeTransferFrom(
             token,
             msg.sender,
             address(this),
             amount
         );
-        SafeTransferLib.safeTransfer(token, winner, amount * 2);
-    }
-
-    function takeBet(
-        address maker,
-        address token,
-        uint256 amount,
-        uint256 timestamp
-    ) external {
-        (bytes32 betId, address winner) = _takeBet(
-            maker,
-            token,
-            amount,
-            timestamp
-        );
-        emit BetConcluded(
-            maker,
-            msg.sender,
-            token,
-            amount,
-            betId,
-            timestamp,
-            winner
-        );
+        if (makerScore > takerScore) {
+            winner = maker;
+            SafeTransferLib.safeTransfer(token, maker, amount * 2);
+        } else {
+            winner = msg.sender;
+            SafeTransferLib.safeTransfer(token, msg.sender, amount * 2);
+        }
     }
 }
