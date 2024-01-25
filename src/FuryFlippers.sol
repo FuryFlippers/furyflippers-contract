@@ -161,10 +161,9 @@ contract FuryFlippers is Ownable {
         );
         if (makerScore > takerScore) {
             winner = maker;
-            SafeTransferLib.safeTransfer(token, maker, amount * 2);
         } else {
             winner = msg.sender;
-            SafeTransferLib.safeTransfer(token, msg.sender, amount * 2);
         }
+        SafeTransferLib.safeTransfer(token, winner, amount * 2);
     }
 }
