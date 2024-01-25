@@ -5,8 +5,10 @@ import {Ownable} from "solady/src/auth/Ownable.sol";
 import {SafeTransferLib} from "solady/src/utils/SafeTransferLib.sol";
 
 contract FurryFlippers is Ownable {
-    address token;
-    uint256 betLength;
+    address public token;
+    address public lottery;
+    uint256 public fee;
+    uint256 public betLength;
     mapping(bytes32 => uint256) public active;
 
     event BetCreated(
@@ -32,11 +34,20 @@ contract FurryFlippers is Ownable {
         bool makerHeads,
         address winner,
         uint256[] results,
+        uint256 lotteryFee,
+        uint256 payout,
         bytes32 betId
     );
 
-    constructor(address _token, uint256 _betLength) {
+    constructor(
+        address _token,
+        address _lottery,
+        uint256 _fee,
+        uint256 _betLength
+    ) {
         token = _token;
+        lottery = _lottery;
+        fee = _fee;
         betLength = _betLength;
     }
 
@@ -73,12 +84,13 @@ contract FurryFlippers is Ownable {
         uint256 amount,
         bool makerHeads
     ) external {
-        (bytes32 betId, address winner, uint256[] memory results) = _takeBet(
-            maker,
-            taker,
-            amount,
-            makerHeads
-        );
+        (
+            bytes32 betId,
+            address winner,
+            uint256[] memory results,
+            uint256 lotteryFee,
+            uint256 payout
+        ) = _takeBet(maker, taker, amount, makerHeads);
         emit BetTaken(
             maker,
             msg.sender,
@@ -86,8 +98,18 @@ contract FurryFlippers is Ownable {
             makerHeads,
             winner,
             results,
+            lotteryFee,
+            payout,
             betId
         );
+    }
+
+    function changeLotteryAddress(address newLottery) external onlyOwner {
+        lottery = newLottery;
+    }
+
+    function changeLotteryFee(uint256 newFee) external onlyOwner {
+        fee = newFee;
     }
 
     function _createBet(
@@ -124,7 +146,13 @@ contract FurryFlippers is Ownable {
         bool makerHeads
     )
         internal
-        returns (bytes32 betId, address winner, uint256[] memory results)
+        returns (
+            bytes32 betId,
+            address winner,
+            uint256[] memory results,
+            uint256 lotteryFee,
+            uint256 payout
+        )
     {
         if (taker == address(0)) {
             betId = getBetId(maker, taker, amount, makerHeads);
@@ -139,6 +167,7 @@ contract FurryFlippers is Ownable {
         uint256 takerScore = 0;
         uint256 i = 0;
         uint256 convertedSeed;
+        results = new uint256[](betLength);
         while (i < betLength) {
             seed = uint256(keccak256(abi.encode(seed)));
             unchecked {
@@ -153,17 +182,23 @@ contract FurryFlippers is Ownable {
             }
         }
         active[betId] = 0;
+        if (makerScore > takerScore) {
+            winner = maker;
+        } else {
+            winner = msg.sender;
+        }
+        payout = amount * 2;
+        unchecked {
+            lotteryFee = (payout * fee) / 10000;
+            payout = payout - lotteryFee;
+        }
         SafeTransferLib.safeTransferFrom(
             token,
             msg.sender,
             address(this),
             amount
         );
-        if (makerScore > takerScore) {
-            winner = maker;
-        } else {
-            winner = msg.sender;
-        }
-        SafeTransferLib.safeTransfer(token, winner, amount * 2);
+        SafeTransferLib.safeTransfer(token, lottery, lotteryFee);
+        SafeTransferLib.safeTransfer(token, winner, payout);
     }
 }
