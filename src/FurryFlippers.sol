@@ -163,17 +163,17 @@ contract FurryFlippers is Ownable {
         uint256 seed = uint256(
             keccak256(abi.encodePacked(block.number, block.prevrandao))
         );
-        uint256 makerScore = 0;
-        uint256 takerScore = 0;
-        uint256 i = 0;
+        uint256 makerScore;
+        uint256 takerScore;
+        uint256 i;
         uint256 convertedSeed;
         results = new uint256[](betLength);
         while (i < betLength) {
             seed = uint256(keccak256(abi.encode(seed)));
             unchecked {
-                convertedSeed = seed % 100;
+                convertedSeed = seed % 2;
                 results[i] = convertedSeed;
-                if (convertedSeed < 50) {
+                if (convertedSeed == 0) {
                     ++makerScore;
                 } else {
                     ++takerScore;
@@ -187,8 +187,8 @@ contract FurryFlippers is Ownable {
         } else {
             winner = msg.sender;
         }
-        payout = amount * 2;
         unchecked {
+            payout = amount * 2;
             lotteryFee = (payout * fee) / 10000;
             payout = payout - lotteryFee;
         }
