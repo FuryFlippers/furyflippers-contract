@@ -16,6 +16,7 @@ contract FurryFlippers is Ownable {
         address taker,
         uint256 amount,
         bool makerHeads,
+        uint256 timestamp,
         bytes32 betId
     );
 
@@ -24,6 +25,7 @@ contract FurryFlippers is Ownable {
         address taker,
         uint256 amount,
         bool makerHeads,
+        uint256 timestamp,
         bytes32 betId
     );
 
@@ -32,6 +34,7 @@ contract FurryFlippers is Ownable {
         address taker,
         uint256 amount,
         bool makerHeads,
+        uint256 timestamp,
         address winner,
         uint256[] results,
         uint256 lotteryFee,
@@ -55,9 +58,10 @@ contract FurryFlippers is Ownable {
         address maker,
         address taker,
         uint256 amount,
-        bool makerHeads
+        bool makerHeads,
+        uint256 timestamp
     ) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(maker, taker, makerHeads, amount));
+        return keccak256(abi.encodePacked(maker, taker, amount, makerHeads, timestamp));
     }
 
     function createBet(
@@ -66,7 +70,7 @@ contract FurryFlippers is Ownable {
         bool makerHeads
     ) external {
         bytes32 betId = _createBet(taker, amount, makerHeads);
-        emit BetCreated(msg.sender, taker, amount, makerHeads, betId);
+        emit BetCreated(msg.sender, taker, amount, makerHeads, block.timestamp, betId);
     }
 
     function cancelBet(
@@ -75,7 +79,7 @@ contract FurryFlippers is Ownable {
         bool makerHeads
     ) external {
         bytes32 betId = _cancelBet(taker, amount, makerHeads);
-        emit BetCancelled(msg.sender, taker, amount, makerHeads, betId);
+        emit BetCancelled(msg.sender, taker, amount, makerHeads, block.timestamp, betId);
     }
 
     function takeBet(
@@ -96,6 +100,7 @@ contract FurryFlippers is Ownable {
             msg.sender,
             amount,
             makerHeads,
+            block.timestamp,
             winner,
             results,
             lotteryFee,
@@ -117,7 +122,7 @@ contract FurryFlippers is Ownable {
         uint256 amount,
         bool makerHeads
     ) internal returns (bytes32 betId) {
-        betId = getBetId(msg.sender, taker, amount, makerHeads);
+        betId = getBetId(msg.sender, taker, amount, makerHeads, block.timestamp);
         require(active[betId] == 0, "exists");
         active[betId] = 1;
         SafeTransferLib.safeTransferFrom(
@@ -133,7 +138,7 @@ contract FurryFlippers is Ownable {
         uint256 amount,
         bool makerHeads
     ) internal returns (bytes32 betId) {
-        betId = getBetId(msg.sender, taker, amount, makerHeads);
+        betId = getBetId(msg.sender, taker, amount, makerHeads, block.timestamp);
         require(active[betId] == 1, "does not exist");
         active[betId] = 0;
         SafeTransferLib.safeTransfer(token, msg.sender, amount);
@@ -155,9 +160,9 @@ contract FurryFlippers is Ownable {
         )
     {
         if (taker == address(0)) {
-            betId = getBetId(maker, taker, amount, makerHeads);
+            betId = getBetId(maker, taker, amount, makerHeads, block.timestamp);
         } else {
-            betId = getBetId(maker, msg.sender, amount, makerHeads);
+            betId = getBetId(maker, msg.sender, amount, makerHeads, block.timestamp);
         }
         require(active[betId] == 1, "does not exist");
         uint256 seed = uint256(
