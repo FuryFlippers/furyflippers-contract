@@ -76,17 +76,19 @@ contract FurryFlippers is Ownable {
     function cancelBet(
         address taker,
         uint256 amount,
-        bool makerHeads
+        bool makerHeads,
+        uint256 timestamp
     ) external {
-        bytes32 betId = _cancelBet(taker, amount, makerHeads);
-        emit BetCancelled(msg.sender, taker, amount, makerHeads, block.timestamp, betId);
+        bytes32 betId = _cancelBet(taker, amount, makerHeads, timestamp);
+        emit BetCancelled(msg.sender, taker, amount, makerHeads, timestamp, betId);
     }
 
     function takeBet(
         address maker,
         address taker,
         uint256 amount,
-        bool makerHeads
+        bool makerHeads,
+        uint256 timestamp
     ) external {
         (
             bytes32 betId,
@@ -94,13 +96,13 @@ contract FurryFlippers is Ownable {
             uint256[] memory results,
             uint256 lotteryFee,
             uint256 payout
-        ) = _takeBet(maker, taker, amount, makerHeads);
+        ) = _takeBet(maker, taker, amount, makerHeads, timestamp);
         emit BetTaken(
             maker,
             msg.sender,
             amount,
             makerHeads,
-            block.timestamp,
+            timestamp,
             winner,
             results,
             lotteryFee,
@@ -136,9 +138,10 @@ contract FurryFlippers is Ownable {
     function _cancelBet(
         address taker,
         uint256 amount,
-        bool makerHeads
+        bool makerHeads,
+        uint256 timestamp
     ) internal returns (bytes32 betId) {
-        betId = getBetId(msg.sender, taker, amount, makerHeads, block.timestamp);
+        betId = getBetId(msg.sender, taker, amount, makerHeads, timestamp);
         require(active[betId] == 1, "does not exist");
         active[betId] = 0;
         SafeTransferLib.safeTransfer(token, msg.sender, amount);
@@ -148,7 +151,8 @@ contract FurryFlippers is Ownable {
         address maker,
         address taker,
         uint256 amount,
-        bool makerHeads
+        bool makerHeads,
+        uint256 timestamp
     )
         internal
         returns (
@@ -160,9 +164,9 @@ contract FurryFlippers is Ownable {
         )
     {
         if (taker == address(0)) {
-            betId = getBetId(maker, taker, amount, makerHeads, block.timestamp);
+            betId = getBetId(maker, taker, amount, makerHeads, timestamp);
         } else {
-            betId = getBetId(maker, msg.sender, amount, makerHeads, block.timestamp);
+            betId = getBetId(maker, msg.sender, amount, makerHeads, timestamp);
         }
         require(active[betId] == 1, "does not exist");
         uint256 seed = uint256(
