@@ -175,14 +175,12 @@ contract FurryFlippers is Ownable {
         uint256 makerScore;
         uint256 takerScore;
         uint256 i;
-        uint256 convertedSeed;
         results = new uint256[](betLength);
         while (i < betLength) {
             seed = uint256(keccak256(abi.encode(seed)));
             unchecked {
-                convertedSeed = seed % 2;
-                results[i] = convertedSeed;
-                if (convertedSeed == 0) {
+                results[i] = seed % 2;
+                if (results[i] == 0) {
                     ++makerScore;
                 } else {
                     ++takerScore;
